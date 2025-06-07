@@ -41,9 +41,9 @@ app.post("/enviar", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
-});
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  });
 
 async function enviarCorreo(archivoWord, datos) {
   const transporter = nodemailer.createTransport({
