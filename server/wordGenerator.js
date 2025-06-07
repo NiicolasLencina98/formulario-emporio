@@ -28,9 +28,13 @@ async function generarWord(datos, carpeta) {
     agregar("Parentesco", datos.emergenciaParentesco),
     new Paragraph(""),
     new Paragraph("Familiares:"),
-    ...(datos.familiares || []).map(f =>
-      new Paragraph(`${f.nombre} (${f.parentesco}) - Nac: ${f.fechaNacimiento}, DNI: ${f.dni}`)
-    ),
+    ...(datos.familiares || []).map(f => {
+      const nombre = f.nombre || "-";
+      const parentesco = f.parentesco || "-";
+      const fechaNacimiento = f.fechaNacimiento || "-";
+      const dni = f.dni || "-";
+      return new Paragraph(`${nombre} (${parentesco}) - Nac: ${fechaNacimiento}, DNI: ${dni}`);
+    }),
     new Paragraph(""),
     agregar("Primario", datos.primario ? "Sí" : "No"),
     agregar("Título primario", datos.tituloPrimario),
@@ -50,7 +54,7 @@ async function generarWord(datos, carpeta) {
   doc.addSection({ children: contenido });
 
   const buffer = await Packer.toBuffer(doc);
-  const nombreLimpio = datos.nombreCompleto.replace(/\s+/g, "_").toLowerCase();
+  const nombreLimpio = datos.nombreCompleto ? datos.nombreCompleto.replace(/\s+/g, "_").toLowerCase() : "sin_nombre";
   const ruta = path.join(carpeta, `${nombreLimpio}_${Date.now()}.docx`);
 
   fs.writeFileSync(ruta, buffer);

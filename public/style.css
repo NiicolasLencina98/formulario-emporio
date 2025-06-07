@@ -1,34 +1,139 @@
+/* estilo.css */
+
 body {
   font-family: Arial, sans-serif;
-  margin: 30px;
+  background: #f5f8fa;
+  color: #333;
+  margin: 20px;
+  line-height: 1.5;
 }
-input, select, textarea {
+
+h1 {
+  text-align: center;
+  margin-bottom: 30px;
+  color: #2c3e50;
+}
+
+/* Formulario */
+form {
+  max-width: 700px;
+  margin: 0 auto;
+  background: white;
+  padding: 25px 30px;
+  border-radius: 8px;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.1);
+}
+
+/* Fieldsets para agrupar secciones */
+fieldset {
+  border: 1px solid #d1d9e6;
+  padding: 20px 25px 25px 25px;
+  margin-bottom: 25px;
+  border-radius: 6px;
+  background-color: #fafbfc;
+}
+
+legend {
+  font-weight: bold;
+  padding: 0 10px;
+  color: #34495e;
+  font-size: 1.1em;
+}
+
+/* Etiquetas */
+label {
+  display: block;
+  margin-top: 15px;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: #34495e;
+  cursor: pointer;
+}
+
+/* Inputs y textarea */
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="date"],
+textarea {
   width: 100%;
-  margin: 5px 0;
-  padding: 6px;
+  padding: 8px 12px;
+  font-size: 1em;
+  border: 1px solid #ccd6e0;
+  border-radius: 4px;
+  transition: border-color 0.3s ease;
+  box-sizing: border-box;
+  font-family: inherit;
 }
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="tel"]:focus,
+input[type="date"]:focus,
+textarea:focus {
+  border-color: #2980b9;
+  outline: none;
+  background-color: #eaf4fc;
+}
+
+/* Checkbox y label inline */
+label > input[type="checkbox"] {
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+/* Textarea */
+textarea {
+  resize: vertical;
+  min-height: 70px;
+}
+
+/* Tabla para datos familiares */
 table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 10px;
+  margin-top: 10px;
 }
-th, td {
-  border: 1px solid #ccc;
-  padding: 6px;
+
+table th,
+table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+  font-size: 0.95em;
 }
-label {
-  font-weight: bold;
+
+table th {
+  background-color: #ecf0f1;
+  color: #2c3e50;
 }
-.grupo {
-  margin-bottom: 20px;
-}
-button {
-  padding: 10px 20px;
-  background-color: #007bff;
+
+/* Botón enviar */
+button[type="submit"] {
+  display: block;
+  background-color: #2980b9;
   color: white;
   border: none;
+  padding: 12px 28px;
+  font-size: 1.1em;
+  font-weight: 700;
+  border-radius: 6px;
   cursor: pointer;
+  margin: 20px auto 0 auto;
+  transition: background-color 0.3s ease;
 }
-button:hover {
-  background-color: #0056b3;
+
+button[type="submit"]:hover {
+  background-color: #1c5980;
+}
+
+/* Responsive para pantallas pequeñas */
+@media (max-width: 480px) {
+  form {
+    padding: 15px 20px;
+  }
+
+  label {
+    margin-top: 12px;
+  }
 }
