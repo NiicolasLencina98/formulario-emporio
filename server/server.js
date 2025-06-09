@@ -68,7 +68,7 @@ async function enviarCorreo(archivoWord, datos) {
     service: "gmail",
     auth: {
       user: "niicolas.emporiio@gmail.com",
-      pass: "CLAVE_GENERADA" // Reemplazá con tu App Password
+      pass: "jibw tbsk uwlh wgdj" // Reemplazá con tu App Password
     }
   });
 
