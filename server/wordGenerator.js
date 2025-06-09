@@ -3,12 +3,6 @@ const path = require("path");
 const { Document, Packer, Paragraph, TextRun } = require("docx");
 
 async function generarWord(datos, carpeta) {
-  const doc = new Document({
-    creator: "Mi Aplicación",
-    title: "Formulario de Datos",
-    description: "Documento generado con docx",
-  });
-
   const agregar = (label, valor) =>
     new Paragraph({ children: [new TextRun(`${label}: ${valor || "-"}`)] });
 
@@ -55,7 +49,16 @@ async function generarWord(datos, carpeta) {
     agregar("Fecha", datos.fecha),
   ];
 
-  doc.addSection({ children: contenido });
+  const doc = new Document({
+    creator: "Mi Aplicación",
+    title: "Formulario de Datos",
+    description: "Documento generado con docx",
+    sections: [
+      {
+        children: contenido
+      }
+    ]
+  });
 
   const buffer = await Packer.toBuffer(doc);
   const nombreLimpio = datos.nombreCompleto ? datos.nombreCompleto.replace(/\s+/g, "_").toLowerCase() : "sin_nombre";
