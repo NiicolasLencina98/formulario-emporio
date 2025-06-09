@@ -16,6 +16,7 @@ app.use(express.static(path.join(__dirname, "..", "public")));
 const RUTA_JSON = path.join(__dirname, "datos.json");
 const CARPETA_DOCS = path.join(__dirname, "documentos");
 
+// Crea la carpeta documentos si no existe
 if (!fs.existsSync(CARPETA_DOCS)) {
   fs.mkdirSync(CARPETA_DOCS);
 }
@@ -25,9 +26,12 @@ app.post("/enviar", async (req, res) => {
 
   try {
     let existentes = [];
+
+    // ✅ Lectura del JSON con codificación UTF-8
     if (fs.existsSync(RUTA_JSON)) {
-      existentes = JSON.parse(fs.readFileSync(RUTA_JSON));
+      existentes = JSON.parse(fs.readFileSync(RUTA_JSON, "utf-8"));
     }
+
     existentes.push(datos);
     fs.writeFileSync(RUTA_JSON, JSON.stringify(existentes, null, 2));
 
@@ -41,16 +45,16 @@ app.post("/enviar", async (req, res) => {
   }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Servidor corriendo en http://localhost:${PORT}`);
-  });
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+});
 
 async function enviarCorreo(archivoWord, datos) {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
       user: "niicolas.emporiio@gmail.com",
-      pass: "CLAVE_GENERADA" // Usa un App Password real
+      pass: "CLAVE_GENERADA" // Usa tu App Password real
     }
   });
 
@@ -59,9 +63,11 @@ async function enviarCorreo(archivoWord, datos) {
     to: "niicolas.emporiio@gmail.com",
     subject: `Nuevo formulario: ${datos.nombreCompleto}`,
     text: "Adjunto encontrarás el formulario completado.",
-    attachments: [{
-      filename: path.basename(archivoWord),
-      path: archivoWord
-    }]
+    attachments: [
+      {
+        filename: path.basename(archivoWord),
+        path: archivoWord
+      }
+    ]
   });
 }
