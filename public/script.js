@@ -109,3 +109,116 @@ window.addEventListener('load', () => {
     }
   }
 });
+
+///////////////////////////////
+// NUEVAS FUNCIONES PARA EXPORTAR WORD Y PDF
+///////////////////////////////
+
+import { Document, Packer, Paragraph, TextRun } from "https://cdn.jsdelivr.net/npm/docx@7.1.2/build/docx.mjs";
+import { saveAs } from "https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js";
+import jsPDF from "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+
+document.getElementById('btnExportarWord').addEventListener('click', exportarWord);
+document.getElementById('btnExportarPDF').addEventListener('click', exportarPDF);
+
+function exportarWord() {
+  const datos = JSON.parse(localStorage.getItem('datosFormulario') || '{}');
+
+  // Crear párrafos para cada dato
+  const contenido = [];
+
+  // Datos simples
+  for (const [key, value] of Object.entries(datos)) {
+    if (key === 'familiares' || key.startsWith('nivel')) continue;
+    if (value && value !== '') {
+      contenido.push(new Paragraph({
+        children: [new TextRun({ text: `${key}: ${value}`, size: 22 })]
+      }));
+    }
+  }
+
+  // Checkbox niveles y sus detalles
+  ['Primario', 'Secundario', 'Terciario', 'Universitario'].forEach(nivel => {
+    if (datos[`nivel${nivel}`]) {
+      const estado = datos[`estado${nivel}`] || '';
+      const titulo = datos[`titulo${nivel}`] || '';
+      contenido.push(new Paragraph({
+        children: [new TextRun({ text: `Nivel ${nivel}: Sí`, bold: true, size: 22 })]
+      }));
+      contenido.push(new Paragraph({ text: `Estado: ${estado}`, spacing: { after: 100 } }));
+      contenido.push(new Paragraph({ text: `Título: ${titulo}`, spacing: { after: 200 } }));
+    }
+  });
+
+  // Familiares
+  if (datos.familiares && datos.familiares.length) {
+    contenido.push(new Paragraph({ text: "Familiares:", bold: true, size: 24, spacing: { before: 400, after: 200 } }));
+    datos.familiares.forEach((f, i) => {
+      contenido.push(new Paragraph({
+        children: [
+          new TextRun({ text: `Nombre: ${f.nombre} | Parentesco: ${f.parentesco} | Fecha Nac.: ${f.fechaNacimiento} | DNI: ${f.dni}`, size: 20 }),
+        ],
+        spacing: { after: 100 }
+      }));
+    });
+  }
+
+  const doc = new Document({
+    sections: [{
+      properties: {},
+      children: contenido
+    }]
+  });
+
+  Packer.toBlob(doc).then(blob => {
+    saveAs(blob, "formulario.docx");
+  });
+}
+
+async function exportarPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF('p', 'pt', 'a4');
+  pdf.setFontSize(10);
+  const datos = JSON.parse(localStorage.getItem('datosFormulario') || '{}');
+
+  let y = 20;
+
+  // Función para escribir texto y manejar salto de línea
+  function escribirLinea(text) {
+    const lineHeight = 14;
+    const pageHeight = pdf.internal.pageSize.height;
+    if (y + lineHeight > pageHeight - 20) {
+      pdf.addPage();
+      y = 20;
+    }
+    pdf.text(text, 20, y);
+    y += lineHeight;
+  }
+
+  // Datos simples
+  for (const [key, value] of Object.entries(datos)) {
+    if (key === 'familiares' || key.startsWith('nivel')) continue;
+    if (value && value !== '') {
+      escribirLinea(`${key}: ${value}`);
+    }
+  }
+
+  // Checkbox niveles y detalles
+  ['Primario', 'Secundario', 'Terciario', 'Universitario'].forEach(nivel => {
+    if (datos[`nivel${nivel}`]) {
+      escribirLinea(`Nivel ${nivel}: Sí`);
+      escribirLinea(`  Estado: ${datos[`estado${nivel}`] || ''}`);
+      escribirLinea(`  Título: ${datos[`titulo${nivel}`] || ''}`);
+    }
+  });
+
+  // Familiares
+  if (datos.familiares && datos.familiares.length) {
+    escribirLinea('Familiares:');
+    datos.familiares.forEach((f, i) => {
+      escribirLinea(`  Nombre: ${f.nombre} | Parentesco: ${f.parentesco} | Fecha Nac.: ${f.fechaNacimiento} | DNI: ${f.dni}`);
+    });
+  }
+
+  pdf.save("formulario.pdf");
+}
