@@ -3,10 +3,10 @@ const fs = require("fs");
 const path = require("path");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-const { generarWord } = require("./wordGenerator");
 const nodemailer = require("nodemailer");
-const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
-const XLSX = require('xlsx');
+
+const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType } = require("docx");
+const PDFDocument = require("pdfkit");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,202 +18,223 @@ app.use(express.static(path.join(__dirname, "..", "public")));
 const RUTA_JSON = path.join(__dirname, "datos.json");
 const CARPETA_DOCS = path.join(__dirname, "documentos");
 
-// Crear carpeta documentos si no existe
-if (!fs.existsSync(CARPETA_DOCS)) {
-  fs.mkdirSync(CARPETA_DOCS);
-}
-// Crear datos.json si no existe
-if (!fs.existsSync(RUTA_JSON)) {
-  fs.writeFileSync(RUTA_JSON, "[]");
-}
+if (!fs.existsSync(CARPETA_DOCS)) fs.mkdirSync(CARPETA_DOCS);
+if (!fs.existsSync(RUTA_JSON)) fs.writeFileSync(RUTA_JSON, "[]");
 
-// Función para generar PDF con pdf-lib
-async function generarPDF(datos, carpeta) {
-  const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage([600, 750]);
-  const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
-
-  const { width, height } = page.getSize();
-  let y = height - 40;
-  const fontSize = 12;
-
-  function escribir(text) {
-    page.drawText(text, {
-      x: 50,
-      y,
-      size: fontSize,
-      font: timesRomanFont,
-      color: rgb(0, 0, 0),
+// --- Generar Word con estilo ---
+async function generarWord(datos, carpeta) {
+  const agregarTitulo = (texto) =>
+    new Paragraph({
+      children: [new TextRun({ text: texto, bold: true, size: 32, color: "2E74B5" })],
+      spacing: { after: 300 },
     });
-    y -= fontSize + 5;
+
+  const agregarCampo = (label, valor) =>
+    new Paragraph({
+      children: [
+        new TextRun({ text: `${label}: `, bold: true, color: "1F4E79" }),
+        new TextRun(valor || "-"),
+      ],
+      spacing: { after: 150 },
+    });
+
+  function tablaFamiliares(familiares) {
+    if (!familiares || familiares.length === 0) return [];
+    const filas = familiares.map(f =>
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph(f.nombre || "-")], width: { size: 25, type: WidthType.PERCENTAGE } }),
+          new TableCell({ children: [new Paragraph(f.parentesco || "-")], width: { size: 25, type: WidthType.PERCENTAGE } }),
+          new TableCell({ children: [new Paragraph(f.fechaNacimiento || "-")], width: { size: 25, type: WidthType.PERCENTAGE } }),
+          new TableCell({ children: [new Paragraph(f.dni || "-")], width: { size: 25, type: WidthType.PERCENTAGE } }),
+        ],
+      })
+    );
+    return [
+      new Paragraph({ text: "Familiares", bold: true, spacing: { after: 200 } }),
+      new Table({
+        rows: [
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph("Nombre")], shading: { fill: "D9E1F2" } }),
+              new TableCell({ children: [new Paragraph("Parentesco")], shading: { fill: "D9E1F2" } }),
+              new TableCell({ children: [new Paragraph("Fecha Nac.")], shading: { fill: "D9E1F2" } }),
+              new TableCell({ children: [new Paragraph("DNI")], shading: { fill: "D9E1F2" } }),
+            ],
+          }),
+          ...filas,
+        ],
+        width: { size: 100, type: WidthType.PERCENTAGE },
+      }),
+      new Paragraph(""),
+    ];
   }
 
-  escribir("Formulario de Datos");
-  escribir("--------------------");
-  escribir(`Nombre completo: ${datos.nombreCompleto || "-"}`);
-  escribir(`Calle: ${datos.calle || "-"}`);
-  escribir(`Número: ${datos.numero || "-"}`);
-  escribir(`Piso: ${datos.piso || "-"}`);
-  escribir(`Depto: ${datos.depto || "-"}`);
-  escribir(`CP: ${datos.cp || "-"}`);
-  escribir(`Barrio: ${datos.barrio || "-"}`);
-  escribir(`Localidad: ${datos.localidad || "-"}`);
-  escribir(`Provincia: ${datos.provincia || "-"}`);
-  escribir(`Entre calles: ${datos.entreCalles || "-"}`);
-  escribir(`Estado civil: ${datos.estadoCivil || "-"}`);
-  escribir(`Celular: ${datos.celular || "-"}`);
-  escribir(`Email: ${datos.email || "-"}`);
-  escribir(`Tel. emergencia: ${datos.emergenciaNumero || "-"}`);
-  escribir(`Nombre de contacto: ${datos.emergenciaNombre || "-"}`);
-  escribir(`Parentesco: ${datos.emergenciaParentesco || "-"}`);
+  const contenido = [
+    agregarTitulo("Formulario de Datos"),
+    agregarCampo("Nombre completo", datos.nombreCompleto),
+    agregarCampo("Calle", datos.calle),
+    agregarCampo("Número", datos.numero),
+    agregarCampo("Piso", datos.piso),
+    agregarCampo("Depto", datos.depto),
+    agregarCampo("CP", datos.cp),
+    agregarCampo("Barrio", datos.barrio),
+    agregarCampo("Localidad", datos.localidad),
+    agregarCampo("Provincia", datos.provincia),
+    agregarCampo("Entre calles", datos.entreCalles),
+    agregarCampo("Estado civil", datos.estadoCivil),
+    agregarCampo("Celular", datos.celular),
+    agregarCampo("Email", datos.email),
+    agregarCampo("Tel. emergencia", datos.emergenciaNumero),
+    agregarCampo("Nombre de contacto", datos.emergenciaNombre),
+    agregarCampo("Parentesco", datos.emergenciaParentesco),
+    ...tablaFamiliares(datos.familiares),
+    agregarCampo("Primario", datos.primario ? "Sí" : "No"),
+    agregarCampo("Título primario", datos.tituloPrimario),
+    agregarCampo("Secundario", datos.secundario ? "Sí" : "No"),
+    agregarCampo("Título secundario", datos.tituloSecundario),
+    agregarCampo("Terciario", datos.terciario ? "Sí" : "No"),
+    agregarCampo("Título terciario", datos.tituloTerciario),
+    agregarCampo("Universitario", datos.universitario ? "Sí" : "No"),
+    agregarCampo("Título universitario", datos.tituloUniversitario),
+    agregarCampo("Otros cursos", datos.otrosCursos),
+    agregarCampo("Habilidades", datos.habilidades),
+    agregarCampo("Firma", datos.firma),
+    agregarCampo("Aclaración", datos.aclaracion),
+    agregarCampo("Fecha", datos.fecha),
+  ];
 
-  if (datos.familiares && datos.familiares.length) {
-    y -= 15;
-    escribir("Familiares:");
-    datos.familiares.forEach(f => {
-      escribir(`- ${f.nombre || "-"} (${f.parentesco || "-"}) - Nac: ${f.fechaNacimiento || "-"}, DNI: ${f.dni || "-"}`);
-    });
-  }
+  const doc = new Document({
+    creator: "Mi Aplicación",
+    title: "Formulario de Datos",
+    description: "Documento generado con docx",
+    sections: [{ children: contenido }],
+  });
 
-  y -= 10;
-  escribir(`Primario: ${datos.primario ? "Sí" : "No"}`);
-  escribir(`Título primario: ${datos.tituloPrimario || "-"}`);
-  escribir(`Secundario: ${datos.secundario ? "Sí" : "No"}`);
-  escribir(`Título secundario: ${datos.tituloSecundario || "-"}`);
-  escribir(`Terciario: ${datos.terciario ? "Sí" : "No"}`);
-  escribir(`Título terciario: ${datos.tituloTerciario || "-"}`);
-  escribir(`Universitario: ${datos.universitario ? "Sí" : "No"}`);
-  escribir(`Título universitario: ${datos.tituloUniversitario || "-"}`);
-  escribir(`Otros cursos: ${datos.otrosCursos || "-"}`);
-  escribir(`Habilidades: ${datos.habilidades || "-"}`);
-  escribir(`Firma: ${datos.firma || "-"}`);
-  escribir(`Aclaración: ${datos.aclaracion || "-"}`);
-  escribir(`Fecha: ${datos.fecha || "-"}`);
-
-  const pdfBytes = await pdfDoc.save();
+  const buffer = await Packer.toBuffer(doc);
   const nombreLimpio = datos.nombreCompleto ? datos.nombreCompleto.replace(/\s+/g, "_").toLowerCase() : "sin_nombre";
-  const ruta = path.join(carpeta, `${nombreLimpio}_${Date.now()}.pdf`);
-  fs.writeFileSync(ruta, pdfBytes);
+  const ruta = path.join(carpeta, `${nombreLimpio}_${Date.now()}.docx`);
+  fs.writeFileSync(ruta, buffer);
   return ruta;
 }
 
-// Función para generar Excel con xlsx
-function generarExcel(datos, carpeta) {
-  const wb = XLSX.utils.book_new();
+// --- Generar PDF con pdfkit ---
+function generarPDF(datos, carpeta) {
+  return new Promise((resolve, reject) => {
+    const nombreLimpio = datos.nombreCompleto ? datos.nombreCompleto.replace(/\s+/g, "_").toLowerCase() : "sin_nombre";
+    const ruta = path.join(carpeta, `${nombreLimpio}_${Date.now()}.pdf`);
 
-  const familiares = (datos.familiares || []).map(f => ({
-    Nombre: f.nombre || "-",
-    Parentesco: f.parentesco || "-",
-    'Fecha Nacimiento': f.fechaNacimiento || "-",
-    DNI: f.dni || "-"
-  }));
+    const doc = new PDFDocument({ margin: 50 });
+    const stream = fs.createWriteStream(ruta);
+    doc.pipe(stream);
 
-  const mainData = [{
-    "Nombre completo": datos.nombreCompleto || "-",
-    "Calle": datos.calle || "-",
-    "Número": datos.numero || "-",
-    "Piso": datos.piso || "-",
-    "Depto": datos.depto || "-",
-    "CP": datos.cp || "-",
-    "Barrio": datos.barrio || "-",
-    "Localidad": datos.localidad || "-",
-    "Provincia": datos.provincia || "-",
-    "Entre calles": datos.entreCalles || "-",
-    "Estado civil": datos.estadoCivil || "-",
-    "Celular": datos.celular || "-",
-    "Email": datos.email || "-",
-    "Tel. emergencia": datos.emergenciaNumero || "-",
-    "Nombre de contacto": datos.emergenciaNombre || "-",
-    "Parentesco contacto": datos.emergenciaParentesco || "-",
-    "Primario": datos.primario ? "Sí" : "No",
-    "Título primario": datos.tituloPrimario || "-",
-    "Secundario": datos.secundario ? "Sí" : "No",
-    "Título secundario": datos.tituloSecundario || "-",
-    "Terciario": datos.terciario ? "Sí" : "No",
-    "Título terciario": datos.tituloTerciario || "-",
-    "Universitario": datos.universitario ? "Sí" : "No",
-    "Título universitario": datos.tituloUniversitario || "-",
-    "Otros cursos": datos.otrosCursos || "-",
-    "Habilidades": datos.habilidades || "-",
-    "Firma": datos.firma || "-",
-    "Aclaración": datos.aclaracion || "-",
-    "Fecha": datos.fecha || "-"
-  }];
+    doc.fillColor("#2E74B5").fontSize(20).text("Formulario de Datos", { align: "center" }).moveDown();
 
-  const wsDatos = XLSX.utils.json_to_sheet(mainData);
-  XLSX.utils.book_append_sheet(wb, wsDatos, "Datos Principales");
+    function campo(label, valor) {
+      doc.fillColor("#1F4E79").font("Helvetica-Bold").text(`${label}: `, { continued: true });
+      doc.fillColor("black").font("Helvetica").text(valor || "-").moveDown(0.5);
+    }
 
-  if (familiares.length > 0) {
-    const wsFam = XLSX.utils.json_to_sheet(familiares);
-    XLSX.utils.book_append_sheet(wb, wsFam, "Familiares");
-  }
+    campo("Nombre completo", datos.nombreCompleto);
+    campo("Calle", datos.calle);
+    campo("Número", datos.numero);
+    campo("Piso", datos.piso);
+    campo("Depto", datos.depto);
+    campo("CP", datos.cp);
+    campo("Barrio", datos.barrio);
+    campo("Localidad", datos.localidad);
+    campo("Provincia", datos.provincia);
+    campo("Entre calles", datos.entreCalles);
+    campo("Estado civil", datos.estadoCivil);
+    campo("Celular", datos.celular);
+    campo("Email", datos.email);
+    campo("Tel. emergencia", datos.emergenciaNumero);
+    campo("Nombre de contacto", datos.emergenciaNombre);
+    campo("Parentesco", datos.emergenciaParentesco);
 
-  const nombreLimpio = datos.nombreCompleto ? datos.nombreCompleto.replace(/\s+/g, "_").toLowerCase() : "sin_nombre";
-  const ruta = path.join(carpeta, `${nombreLimpio}_${Date.now()}.xlsx`);
-  XLSX.writeFile(wb, ruta);
-  return ruta;
+    if (datos.familiares && datos.familiares.length > 0) {
+      doc.fillColor("#2E74B5").fontSize(16).text("Familiares", { underline: true });
+      datos.familiares.forEach(f => {
+        doc.fillColor("black").fontSize(12).text(`${f.nombre || "-"} (${f.parentesco || "-"}) - Nac: ${f.fechaNacimiento || "-"}, DNI: ${f.dni || "-"}`);
+      });
+      doc.moveDown();
+    }
+
+    campo("Primario", datos.primario ? "Sí" : "No");
+    campo("Título primario", datos.tituloPrimario);
+    campo("Secundario", datos.secundario ? "Sí" : "No");
+    campo("Título secundario", datos.tituloSecundario);
+    campo("Terciario", datos.terciario ? "Sí" : "No");
+    campo("Título terciario", datos.tituloTerciario);
+    campo("Universitario", datos.universitario ? "Sí" : "No");
+    campo("Título universitario", datos.tituloUniversitario);
+    campo("Otros cursos", datos.otrosCursos);
+    campo("Habilidades", datos.habilidades);
+    campo("Firma", datos.firma);
+    campo("Aclaración", datos.aclaracion);
+    campo("Fecha", datos.fecha);
+
+    doc.end();
+    stream.on("finish", () => resolve(ruta));
+    stream.on("error", reject);
+  });
 }
 
+// --- Enviar correo con adjuntos ---
+async function enviarCorreo(archivos, datos) {
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: "niicolas.emporiio@gmail.com",
+      pass: "jibw tbsk uwlh wgdj", // tu app password
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"Formulario Web" <niicolas.emporiio@gmail.com>`,
+    to: "niicolas.emporiio@gmail.com",
+    subject: `Nuevo formulario: ${datos.nombreCompleto}`,
+    text: "Adjunto encontrarás los documentos generados del formulario completado.",
+    attachments: archivos.map((archivo) => ({
+      filename: path.basename(archivo),
+      path: archivo,
+    })),
+  });
+}
+
+// --- Endpoint para recibir datos ---
 app.post("/enviar", async (req, res) => {
   const datos = req.body;
 
   try {
     let existentes = [];
 
-    // Leer y validar JSON
     if (fs.existsSync(RUTA_JSON)) {
       try {
         const contenido = fs.readFileSync(RUTA_JSON, "utf8");
         existentes = JSON.parse(contenido);
-      } catch (err) {
-        console.error("JSON inválido, se reinicia:", err);
+      } catch (e) {
         existentes = [];
       }
     }
 
-    // Agregar nuevo dato y guardar
     existentes.push(datos);
     fs.writeFileSync(RUTA_JSON, JSON.stringify(existentes, null, 2));
 
-    // Generar archivos
-    const archivoWord = await generarWord(datos, CARPETA_DOCS);
-    const archivoPDF = await generarPDF(datos, CARPETA_DOCS);
-    const archivoExcel = generarExcel(datos, CARPETA_DOCS);
+    // Generar documentos
+    const wordPath = await generarWord(datos, CARPETA_DOCS);
+    const pdfPath = await generarPDF(datos, CARPETA_DOCS);
 
-    // Enviar correo con adjuntos
-    await enviarCorreoConAdjuntos([archivoWord, archivoPDF, archivoExcel], datos);
+    // Enviar email con ambos documentos
+    await enviarCorreo([wordPath, pdfPath], datos);
 
-    res.status(200).send({ mensaje: "Datos recibidos y archivos generados correctamente" });
+    res.json({ success: true, message: "Datos recibidos, documentos generados y enviados." });
   } catch (error) {
-    console.error("Error al procesar formulario:", error);
-    res.status(500).send({ error: "Ocurrió un error en el servidor" });
+    console.error(error);
+    res.status(500).json({ success: false, message: "Error al procesar los datos." });
   }
 });
 
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
-
-// Enviar correo con múltiples adjuntos
-async function enviarCorreoConAdjuntos(archivos, datos) {
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: "niicolas.emporiio@gmail.com",
-      pass: "jibw tbsk uwlh wgdj" // App Password
-    }
-  });
-
-  const adjuntos = archivos.map(ruta => ({
-    filename: path.basename(ruta),
-    path: ruta
-  }));
-
-  await transporter.sendMail({
-    from: `"Formulario Web" <niicolas.emporiio@gmail.com>`,
-    to: "niicolas.emporiio@gmail.com",
-    subject: `Nuevo formulario: ${datos.nombreCompleto || "Sin nombre"}`,
-    text: "Adjunto encontrarás el formulario completado en varios formatos.",
-    attachments: adjuntos
-  });
-}
