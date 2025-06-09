@@ -16,9 +16,14 @@ app.use(express.static(path.join(__dirname, "..", "public")));
 const RUTA_JSON = path.join(__dirname, "datos.json");
 const CARPETA_DOCS = path.join(__dirname, "documentos");
 
-// Crea la carpeta documentos si no existe
+// Crear carpeta de documentos si no existe
 if (!fs.existsSync(CARPETA_DOCS)) {
   fs.mkdirSync(CARPETA_DOCS);
+}
+
+// Crear datos.json si no existe
+if (!fs.existsSync(RUTA_JSON)) {
+  fs.writeFileSync(RUTA_JSON, "[]");
 }
 
 app.post("/enviar", async (req, res) => {
@@ -27,14 +32,22 @@ app.post("/enviar", async (req, res) => {
   try {
     let existentes = [];
 
-    // ✅ Lectura del JSON con codificación UTF-8
+    // Leer y validar JSON
     if (fs.existsSync(RUTA_JSON)) {
-      existentes = JSON.parse(fs.readFileSync(RUTA_JSON, "utf-8"));
+      try {
+        const contenido = fs.readFileSync(RUTA_JSON, "utf8");
+        existentes = JSON.parse(contenido);
+      } catch (err) {
+        console.error("JSON inválido, se reinicia:", err);
+        existentes = [];
+      }
     }
 
+    // Agregar nuevo dato y guardar
     existentes.push(datos);
     fs.writeFileSync(RUTA_JSON, JSON.stringify(existentes, null, 2));
 
+    // Generar Word y enviar por mail
     const archivoWord = await generarWord(datos, CARPETA_DOCS);
     await enviarCorreo(archivoWord, datos);
 
@@ -49,12 +62,13 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
 
+// Función para enviar el correo
 async function enviarCorreo(archivoWord, datos) {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
       user: "niicolas.emporiio@gmail.com",
-      pass: "CLAVE_GENERADA" // Usa tu App Password real
+      pass: "CLAVE_GENERADA" // Reemplazá con tu App Password
     }
   });
 
@@ -63,11 +77,9 @@ async function enviarCorreo(archivoWord, datos) {
     to: "niicolas.emporiio@gmail.com",
     subject: `Nuevo formulario: ${datos.nombreCompleto}`,
     text: "Adjunto encontrarás el formulario completado.",
-    attachments: [
-      {
-        filename: path.basename(archivoWord),
-        path: archivoWord
-      }
-    ]
+    attachments: [{
+      filename: path.basename(archivoWord),
+      path: archivoWord
+    }]
   });
 }

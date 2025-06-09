@@ -3,7 +3,11 @@ const path = require("path");
 const { Document, Packer, Paragraph, TextRun } = require("docx");
 
 async function generarWord(datos, carpeta) {
-  const doc = new Document();
+  const doc = new Document({
+    creator: "Mi Aplicación",
+    title: "Formulario de Datos",
+    description: "Documento generado con docx",
+  });
 
   const agregar = (label, valor) =>
     new Paragraph({ children: [new TextRun(`${label}: ${valor || "-"}`)] });
